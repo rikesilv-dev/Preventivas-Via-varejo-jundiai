@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Controle de Manutenção</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f49c;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background:url("https://media.licdn.com/dms/image/v2/D4D3DAQG21eNJpdZ0fQ/image-scale_191_1128/image-scale_191_1128/0/1732309685171/still_brasil_empilhadeira_cover?e=2147483647&v=beta&t=lLD15uNZ1WRKFjW-X3OE3VjEGt0EwBl6topHrsMkxDU") no-repeat center center;
+      color: white;
+      text-align: center;
+      padding: 30px 120px;
+    }
+    header h1 { margin: 0; }
+    main {
+      flex: 1;
+      padding: 3px;
+      max-width: 1288px;
+      margin: auto;
+      background: white;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2, h5 { text-align: center; }
+    .top-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .reset-btn, .export-btn {
+      padding: 6px 10px;
+      background: #34db34;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .reset-btn { background: #e67e22; }
+    .reset-btn:hover { background: #d35400; }
+    .export-btn:hover { background: #2980b9; }
+    .percentual { font-weight: bold; font-size: 1.1em; color: #2c3e50; }
+    .nav-buttons {
+        text-align: center;
+        margin-bottom: 5px;
+        flex-wrap: wrap;
+        display: flex;
+        justify-content: center;
+        gap: 5px;
+    }
+    .nav-buttons button {
+        padding: 8px 10px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        background: #f0f0f0;
+        cursor: pointer;
+    }
+    .nav-buttons button.active {
+        background: #2c3e50;
+        color: white;
+        border-color: #06101a79;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 25px;
+      table-layout: auto; /* manter comportamento natural */
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: center;
+      vertical-align: middle;
+    }
+    th { background: #1b232b; color: white; }
+    button.acao {
+      color: white;
+      border: none;
+      padding: 5px 14px;
+      cursor: pointer;
+      border-radius: 1px;
+      font-weight: bold;
+      width: 100px;
+    }
+    button.acao.concluido { background: #2ecc71; }
+    button.acao.a-realizar { background: #cf1602; }
+
+    /* ajustes de largura dos inputs */
+    input.horimetro, input.dataManut, input.oleo {
+      width: 100px;
+      padding: 3px;
+      text-align: center;
+    }
+
+    /* Nº O.S.: maior, fonte monoespaçada e auto-resize via JS */
+    input.osNum {
+      min-width: 180px;    /* mínimo */
+      max-width: 300px;    /* limite para não destruir layout */
+      padding: 6px;
+      text-align: center;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 13px;
+      box-sizing: content-box; /* para facilitar ajuste por JS */
+    }
+
+    /* aumentar a largura da coluna (sugestão, pode ajustar) */
+    th:nth-child(3), td:nth-child(3) { width: 100px; }
+
+    .pesquisa { margin: 10px 0; text-align: center; }
+    .pesquisa input {
+      width: 70%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    /* ALERTA DE ÓLEO */
+    .alerta { background-color: #e74c3c !important; color: white !important; font-weight: bold; }
+
+    /* ALERTA DE ATRASO */
+    .atrasado { background-color: yellow !important; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Controle de Manutenção Mensal</h1>
+  </header>
+
+  <main>
+    <div class="top-actions">
+      <button class="reset-btn" onclick="novaCompetencia()">➤ NOVO MÊS</button>
+      <button class="export-btn" onclick="exportarExcel()">⬇ Exportar Excel</button>
+      <div class="percentual" id="percentual">Preventivas concluídas: 0%</div>
+    </div>
+
+    <div class="pesquisa">
+      <input type="text" id="pesquisa" placeholder="🔍 Pesquisar por Máquina..." onkeyup="filtrarTabela()">
+    </div>
+
+    <div class="nav-buttons" id="nav-buttons"></div>
+    <h2 id="titulo-secao"></h2>
+    <h5>Desenvolvido Por Henrique Silva</h5>
+    <h6> Email: Henrique.silva@kiongroup.com </h6>
+    <table>
+      <thead>
+        <tr>
+          <th>SERIE / MODELO</th>
+          <th>Horímetro</th>
+          <th>Nº O.S.</th>
+          <th>Ação</th>
+          <th>Data</th>
+          <th>Troca de Óleo 01</th>
+          <th>Troca de Óleo 02</th>
+          <th>
+            Data Anterior <br>
+            <button class="reset-btn" onclick="limparDataAnteriorAtrasados()"> 🗑 Limpar Atrasados</button>
+          </th>
+          <th>
+            Dias Faltantes <br>
+            <button class="reset-btn" onclick="limparDiasFaltantesAtrasados()"> 🗑 Limpar Atrasados</button>
+          </th>
+        </tr>
+      </thead>
+      <tbody id="tabela-maquinas"></tbody>
+    </table>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <script>
+     const todasAsMaquinas = [
+      //MAQUINAS HENRIQUE
+      "341930Y04383 FMX","341930Y04388 FMX","341930Y04390 FMX","341930Y04392 FMX","341930Y04394 FMX",
+      "341930Y04470 FMX","341930Y04480 FMX","340139Y02015 ERX","340139Y02017 ERX","340139Y02022 ERX",
+      "340139Y02129 ERX","340139Y02156 ERX","340139Y02158 ERX","340139Y02165 ERX","340139Y02185 ERX",
+      "340139Y02192 ERX","340139Y02205 ERX","341033E01096 ERX","348044Y01131 GLP","348044Y01132 GLP",
+      "348044Y01130 GLP","340129E03260 EGU","PARA ATRIBUIR","PARA ATRIBUIR","PARA ATRIBUIR",
+      // MAQUINAS JUNIOR
+      "341930Y04218 FMX G1600 9800","341930Y04266 FMX G1600 9800 BLACK","341930Y04267 FMX G1600 9800 BLACK ",
+      "341930Y04375 FMX","341930Y04386 FMX G1800 11600","341930Y04387 FMX G1200 11600","341930Y04389 FMX G1200 11600",
+      "341930Y04401 FMX G1200 11600","341930Y04431 FMX G1800 9800","340139Y01996 ERX 27","340139Y01968 ERX27 ","340139Y01969 ERX27 ",
+      "340139Y01991 ERX 27 ","340139Y02046 ERX 27","340139Y02060 ERX 27","340139Y02070 ERX 27","340139Y02113 ERX 27",
+      "340139Y02115 ERX 27 ","340139Y02133 ERX 27 1800mm","340139Y02160 ERX 27 BLACK ","340139Y02191 ERX 27 DAT","348104J00446 EGU20",
+       //MAQUINAS LEONARDO
+      "MAQ-TESTE-26","MAQ-TESTE-27","MAQ-TESTE-28","341930Y04213 FMX G1600 9800","341930Y04272 FMX G1600 9800 BLACK",
+      "341930Y04273 FMX G1600 9800 BLACK","341930Y04274 G1600 9800 BLACK","341930Y04472 FMX G1200 11600","341930Y04473 FMX G1200 11600",
+      "341930Y04475 FMX G1200 11600","341930Y04476 FMX G1200 11600","341930Y04478 FMX G1200 11600","341930Y04479 FMX G1200 11600 DAT",
+      "340139Y01970 ERX 27","340139Y01971 ERX 27","340139Y02084 ERX 27","340139Y01992 ERX 27","340139Y02014 ERX 27",
+      "340139Y02021 ERX 27","340139Y02025 ERX 27","340139Y02026 ERX 27","340139Y02047 ERX 27","340139Y02059 ERX 27",
+      "340139Y02077 ERX 27 BLACK","340139Y02082 ERX 27",
+       // MAQUINAS LUCAS
+       "MAQ-TESTE-51","MAQ-TESTE-52","MAQ-TESTE-53","341930Y03552 FMX G1200 11600 DAT3 ","341930Y04247 FMX G1600 9800","341930Y04259 FMX G1200 11600 DAT3","341930Y04276 FMX G1600 9800 BLACK","341930Y04277 FMX G1600 9800 BLACK","341930Y04293 FMX G1800 11600 DAT3","341930Y04447 FMX G1800 9800",
+       "340139Y02011 ERX 27 SUP","340139Y02034 ERX 27 BLACK","340139Y02035 ERX 27 BLACK","340139Y02044 ERX 27","340139Y02045 ERX 27","340139Y02062 ERX 27","340139Y02080 ERX 27",
+       "340139Y02125 ERX27 1800mm DAT3","340139Y02132 ERX27 1800mm DAT3","340139Y02135 ERX27 1800mm DAT3","340139Y02159 ERX 27","340139Y02166 ERX27 1800mm DAT3 ","340139Y02173 ERX27 1800mm DAT3","340261Y06099 EGV-16 DAT3",
+       "340261Y06100 EGV-16 DAT3","340261Y06096 EGV-16 5466 SUP","340261Y06094 EGV-16 5466 SUP",
+       "MAQ-TESTE-78",
+       // MAQUINAS LUIZ
+       "341930Y04217","341930Y04243","341930Y04244","341930Y04245","341930Y04270","341930Y04396","341930Y04402",
+       "341930Y04485","340139Y02075","340139Y02096","340139Y02104","340139Y02112","340139Y02119","340139Y02127",
+       "340139Y02137","340139Y02138","340139Y02140","340139Y02149","340139Y02152","340139Y02157","340139Y02213",
+       "340261Y06095","341033E01098",
+    ];
+
+    // Nomes personalizados para até 10 páginas
+const nomesPaginas = [
+  "Henrique",   // Página 1
+  "Junior",     // Página 2
+  "Leonardo",   // Página 3
+  "Lucas",      // Página 4
+  "Luiz",       // Página 5
+  "Paulo",      // Página 6
+  "Carlos",     // Página 7
+  "Marcos",     // Página 8
+  "André",      // Página 9
+  "Pedro"       // Página 10
+  ];
+    const SENHA = "1234";
+
+    function paginarMaquinas(listaCompleta, tamanhoPagina) {
+      const paginas = {};
+      for (let i = 0; i < listaCompleta.length; i += tamanhoPagina) {
+        const numeroPagina = (i / tamanhoPagina);
+        const nomePagina = nomesPaginas[numeroPagina] || `Página ${numeroPagina+1}`;
+        paginas[nomePagina] = listaCompleta.slice(i, i + tamanhoPagina);
+      }
+      return paginas;
+    }
+
+    const TAMANHO_DA_PAGINA = 25;
+    const maquinasPorPagina = paginarMaquinas(todasAsMaquinas, TAMANHO_DA_PAGINA);
+    const navButtonsEl = document.getElementById("nav-buttons");
+    const tabela = document.getElementById("tabela-maquinas");
+    const percentualEl = document.getElementById("percentual");
+    const tituloSecaoEl = document.getElementById("titulo-secao");
+
+    let manutencoes = JSON.parse(localStorage.getItem("manutencoes")) || {};
+
+    /* função que ajusta a largura do input OS conforme conteúdo */
+    function ajustarWidthOS(input) {
+      try {
+        const len = input.value ? input.value.length : 0;
+        const px = Math.max(160, Math.min(420, 8 + len * 8)); // calcula largura (limites)
+        input.style.width = px + 'px';
+      } catch (e) { /* silencioso */ }
+    }
+
+    function renderizarTabela(nomePagina, listaFiltrada = null) {
+      tabela.innerHTML = "";
+      tituloSecaoEl.textContent = listaFiltrada ? "Resultado da pesquisa" : nomePagina;
+
+      const maquinas = listaFiltrada || maquinasPorPagina[nomePagina];
+      if (!maquinas) return;
+
+      maquinas.forEach(codigo => {
+        const row = document.createElement("tr");
+
+        const colCodigo = document.createElement("td");
+        colCodigo.textContent = codigo;
+
+        const colHori = document.createElement("td");
+        const inputHori = document.createElement("input");
+        inputHori.type = "number";
+        inputHori.classList.add("horimetro");
+        inputHori.value = manutencoes[codigo]?.horimetro || "";
+        colHori.appendChild(inputHori);
+
+        const colOS = document.createElement("td");
+        const inputOS = document.createElement("input");
+        inputOS.type = "text";
+        inputOS.classList.add("osNum");
+        inputOS.value = manutencoes[codigo]?.os || "";
+        inputOS.title = inputOS.value || ""; // tooltip com valor completo
+        ajustarWidthOS(inputOS); // ajusta largura inicial
+        // atualiza título e largura enquanto digita
+        inputOS.addEventListener('input', () => {
+          inputOS.title = inputOS.value;
+          ajustarWidthOS(inputOS);
+        });
+        colOS.appendChild(inputOS);
+
+        const colAcao = document.createElement("td");
+        const botao = document.createElement("button");
+        botao.classList.add("acao");
+
+        const colData = document.createElement("td");
+        const inputData = document.createElement("input");
+        inputData.type = "date";
+        inputData.classList.add("dataManut");
+        inputData.value = manutencoes[codigo]?.data || "";
+        colData.appendChild(inputData);
+
+        const colOleo1 = document.createElement("td");
+        const inputOleo1 = document.createElement("input");
+        inputOleo1.type = "number";
+        inputOleo1.classList.add("oleo");
+        inputOleo1.value = manutencoes[codigo]?.oleo1 || "";
+        colOleo1.appendChild(inputOleo1);
+
+        const colOleo2 = document.createElement("td");
+        const inputOleo2 = document.createElement("input");
+        inputOleo2.type = "number";
+        inputOleo2.classList.add("oleo");
+        inputOleo2.value = manutencoes[codigo]?.oleo2 || "";
+        colOleo2.appendChild(inputOleo2);
+
+        const colDataAnterior = document.createElement("td");
+        colDataAnterior.textContent = manutencoes[codigo]?.dataAnterior || "-";
+
+        const colDias = document.createElement("td");
+        if (manutencoes[codigo]?.dataAnterior) {
+          const dataAnt = new Date(manutencoes[codigo].dataAnterior);
+          const hoje = new Date();
+          const diff = Math.floor((hoje - dataAnt) / (1000 * 60 * 60 * 24));
+          const faltam = 30 - diff;
+          if (faltam > 0) {
+            colDias.textContent = `${faltam} dias`;
+          } else {
+            colDias.textContent = "⚠ Atrasado";
+            colDias.classList.add("atrasado");
+          }
+        } else {
+          colDias.textContent = "-";
+        }
+
+        function atualizarBotao() {
+          botao.classList.remove("concluido", "a-realizar");
+          if (manutencoes[codigo]?.feito) {
+            botao.textContent = "Concluído";
+            botao.classList.add("concluido");
+          } else {
+            botao.textContent = "A Realizar";
+            botao.classList.add("a-realizar");
+          }
+        }
+
+        botao.addEventListener('click', () => {
+          if (!manutencoes[codigo]) manutencoes[codigo] = {};
+          if (!inputOS.value) {
+            alert("⚠ É obrigatório preencher o Nº da O.S antes de concluir!");
+            return;
+          }
+          manutencoes[codigo].feito = !manutencoes[codigo].feito;
+          if (manutencoes[codigo].feito) {
+            manutencoes[codigo].data = inputData.value || new Date().toISOString().split("T")[0];
+            manutencoes[codigo].horimetro = inputHori.value;
+            manutencoes[codigo].os = inputOS.value;
+            manutencoes[codigo].oleo1 = inputOleo1.value;
+            manutencoes[codigo].oleo2 = inputOleo2.value;
+            inputData.value = manutencoes[codigo].data;
+          }
+          salvarStatus();
+          atualizarBotao();
+        });
+
+        [inputHori, inputOS, inputData, inputOleo1, inputOleo2].forEach(el => {
+          el.addEventListener("change", () => {
+            if (!manutencoes[codigo]) manutencoes[codigo] = {};
+            manutencoes[codigo].horimetro = inputHori.value;
+            manutencoes[codigo].os = inputOS.value;
+            manutencoes[codigo].data = inputData.value;
+            manutencoes[codigo].oleo1 = inputOleo1.value;
+            manutencoes[codigo].oleo2 = inputOleo2.value;
+            // atualiza título e largura ao salvar/alterar
+            inputOS.title = inputOS.value;
+            ajustarWidthOS(inputOS);
+            salvarStatus();
+          });
+        });
+
+        atualizarBotao();
+        colAcao.appendChild(botao);
+        row.appendChild(colCodigo);
+        row.appendChild(colHori);
+        row.appendChild(colOS);
+        row.appendChild(colAcao);
+        row.appendChild(colData);
+        row.appendChild(colOleo1);
+        row.appendChild(colOleo2);
+        row.appendChild(colDataAnterior);
+        row.appendChild(colDias);
+        tabela.appendChild(row);
+      });
+    }
+
+    function criarNavegacao() {
+      Object.keys(maquinasPorPagina).forEach(nomePagina => {
+        const button = document.createElement('button');
+        button.textContent = nomePagina;
+        button.addEventListener('click', () => renderizarTabela(nomePagina));
+        navButtonsEl.appendChild(button);
+      });
+    }
+
+    function salvarStatus() {
+      localStorage.setItem("manutencoes", JSON.stringify(manutencoes));
+      atualizarPercentual();
+    }
+
+    function novaCompetencia() {
+      const senha = prompt("Digite a senha para iniciar um NOVO MÊS:");
+      if (senha !== SENHA) {
+        alert("❌ Senha incorreta. Operação cancelada!");
+        return;
+      }
+      if (confirm("Tem certeza que deseja iniciar um NOVO MÊS?")) {
+        Object.keys(manutencoes).forEach(codigo => {
+          const reg = manutencoes[codigo];
+          if (reg.feito) {
+            manutencoes[codigo].dataAnterior = reg.data || "";
+          }
+          manutencoes[codigo].horimetro = "";
+          manutencoes[codigo].os = "";
+          manutencoes[codigo].feito = false;
+        });
+        salvarStatus();
+        location.reload();
+      }
+    }
+
+    function atualizarPercentual() {
+      const totalMaquinas = todasAsMaquinas.length;
+      const feitos = Object.values(manutencoes).filter(m => m.feito).length;
+      const perc = totalMaquinas > 0 ? ((feitos / totalMaquinas) * 100).toFixed(1) : 0;
+      percentualEl.textContent = `Preventivas concluídas: ${perc}%`;
+    }
+
+    function exportarExcel() {
+      const dados = [["Código da Máquina", "Horímetro", "Nº O.S.", "Status", "Data", "Troca Óleo 01", "Troca Óleo 02", "Data Anterior", "Dias Faltantes"]];
+      todasAsMaquinas.forEach(codigo => {
+        const registro = manutencoes[codigo] || {};
+        let diasFaltando = "";
+        if (registro.dataAnterior) {
+          const dataAnt = new Date(registro.dataAnterior);
+          const hoje = new Date();
+          const diff = Math.floor((hoje - dataAnt) / (1000 * 60 * 60 * 24));
+          diasFaltando = diff < 30 ? `${30 - diff} dias` : "⚠ Atrasado";
+        }
+        dados.push([
+          codigo,
+          registro.horimetro || "",
+          registro.os || "",
+          registro.feito ? "Concluído" : "A Realizar",
+          registro.data || "",
+          registro.oleo1 || "",
+          registro.oleo2 || "",
+          registro.dataAnterior || "",
+          diasFaltando
+        ]);
+      });
+      const ws = XLSX.utils.aoa_to_sheet(dados);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Manutenção");
+      XLSX.writeFile(wb, "controle_manutencao.xlsx");
+    }
+
+    function filtrarTabela() {
+      const termo = document.getElementById("pesquisa").value.toLowerCase();
+      if (!termo) {
+        const primeiraPagina = Object.keys(maquinasPorPagina)[0];
+        if (primeiraPagina) renderizarTabela(primeiraPagina);
+        return;
+      }
+      const listaFiltrada = todasAsMaquinas.filter(codigo => codigo.toLowerCase().includes(termo));
+      renderizarTabela(null, listaFiltrada);
+    }
+
+    // limpar atrasados (mantive as funções que você já tinha)
+    function limparDataAnteriorAtrasados() {
+      const senha = prompt("Digite a senha para LIMPAR as Datas Anteriores ATRASADAS:");
+      if (senha !== SENHA) { alert("❌ Senha incorreta. Operação cancelada!"); return; }
+      if (!confirm("Tem certeza que deseja apagar apenas as Datas Anteriores ATRASADAS?")) return;
+      Object.keys(manutencoes).forEach(codigo => {
+        const reg = manutencoes[codigo];
+        if (reg && reg.dataAnterior) {
+          const dataAnt = new Date(reg.dataAnterior);
+          const hoje = new Date();
+          const diff = Math.floor((hoje - dataAnt) / (1000 * 60 * 60 * 24));
+          if (diff >= 30) manutencoes[codigo].dataAnterior = "";
+        }
+      });
+      salvarStatus();
+      location.reload();
+    }
+
+    function limparDiasFaltantesAtrasados() {
+      const senha = prompt("Digite a senha para LIMPAR os Dias Faltantes ATRASADOS:");
+      if (senha !== SENHA) { alert("❌ Senha incorreta. Operação cancelada!"); return; }
+      if (!confirm("Tem certeza que deseja apagar apenas os Dias Faltantes ATRASADOS?")) return;
+      Object.keys(manutencoes).forEach(codigo => {
+        const reg = manutencoes[codigo];
+        if (reg && reg.dataAnterior) {
+          const dataAnt = new Date(reg.dataAnterior);
+          const hoje = new Date();
+          const diff = Math.floor((hoje - dataAnt) / (1000 * 60 * 60 * 24));
+          if (diff >= 30) manutencoes[codigo].dataAnterior = "";
+        }
+      });
+      salvarStatus();
+      location.reload();
+    }
+
+    criarNavegacao();
+    const primeiraPagina = Object.keys(maquinasPorPagina)[0];
+    if (primeiraPagina) renderizarTabela(primeiraPagina);
+    atualizarPercentual();
+  </script>
+</body>
+</html>
